@@ -4,12 +4,41 @@ import argparse
 from collections.abc import Callable
 from typing import cast
 
+from sec_sum.fetch.fetcher import fetch_pipeline
+from sec_sum.fetch.ids import resolve_company_id
+from sec_sum.fetch.net import HttpClient
+
 Command = Callable[[argparse.Namespace], int]
 
 
 def _cmd_fetch(args: argparse.Namespace) -> int:
-    # Implement ticker -> CIK -> filings lookup + caching
-    print(f"[fetch] ticker={args.ticker} forms={args.forms} limit={args.limit}")
+    forms = [s.strip().upper() for s in args.forms.split(",") if s.strip()]
+    if not forms:
+        raise SystemExit("At least one form must be specified (e.g. 10-K, 10-Q)")
+
+    http = HttpClient(
+        user_agent="sec-sum/0.1 (carlos8cadu@gmail.com)",
+        cache_name="sec-sum",
+        rps_limit=5.0,
+        timeout_s=10.0,
+    )
+
+    company = resolve_company_id(args.ticker)
+
+    manifests = fetch_pipeline(
+        http=http,
+        company=company,
+        forms=forms,
+        limit=args.limit,
+        data_root="data",
+        include_amendments=False,
+    )
+
+    label = company.ticker or company.cik10
+    print(f"Fetched {len(manifests)} filings for {label}")
+    for m in manifests:
+        f = m.filing
+        print(f"- {f.form} {f.filing_date} {f.accession}")
     return 0
 
 

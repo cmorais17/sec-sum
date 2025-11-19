@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.13"
 authors = [{name = "Carlos Eduardo M. De Oliveira"}]
 license = {text = "MIT"}
-dependencies = []
+dependencies = [
+    "requests>=2.32.5",
+]
 
 [project.scripts]
 sec-sum = "sec_sum.cli:main"
