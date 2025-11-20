@@ -2,11 +2,37 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable
+import os
+from pathlib import Path
 from typing import cast
 
 from sec_sum.fetch.fetcher import fetch_pipeline
 from sec_sum.fetch.ids import resolve_company_id
 from sec_sum.fetch.net import HttpClient
+from sec_sum.parse_core import parse_filing
+from sec_sum.summarizer import summarize_parsed_file
+
+
+def _load_local_env() -> None:
+    env_path = Path(__file__).resolve().parents[2] / ".env.local"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :].strip()
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_local_env()
 
 Command = Callable[[argparse.Namespace], int]
 
@@ -43,14 +69,33 @@ def _cmd_fetch(args: argparse.Namespace) -> int:
 
 
 def _cmd_parse(args: argparse.Namespace) -> int:
-    # Parse HTML/iXBRL into structured data
-    print(f"[parse] accession={args.accession} path={args.path}")
+    # Parse accession or path
+    accession = args.accession
+    path = args.path
+
+    if not accession and not path:
+        raise SystemExit("You must provide either --accession or --path to parse")
+
+    out_path = parse_filing(
+        accession=accession,
+        path=path,
+        data_root="data",
+        out_dir="out",
+    )
+    print(f"Parsed filing written to {out_path}")
     return 0
 
 
 def _cmd_summarize(args: argparse.Namespace) -> int:
-    # Summarization + JSON/CSV/MD outputs
-    print(f"[summarize] input={args.input} outdir={args.outdir}")
+    # Summarization + MD output
+    input_path = Path(args.input)
+    out_dir = Path(args.outdir)
+
+    if not input_path.exists():
+        raise SystemExit(f"Input file {input_path!r} does not exist")
+
+    out_path = summarize_parsed_file(input_path=input_path, out_dir=out_dir)
+    print(f"Summary written to {out_path}")
     return 0
 
 

@@ -7,6 +7,9 @@ requires-python = ">=3.13"
 authors = [{name = "Carlos Eduardo M. De Oliveira"}]
 license = {text = "MIT"}
 dependencies = [
+    "beautifulsoup4>=4.14.2",
+    "lxml>=6.0.2",
+    "openai>=2.8.1",
     "requests>=2.32.5",
 ]
 
