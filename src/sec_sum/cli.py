@@ -10,6 +10,7 @@ from sec_sum.fetch.fetcher import fetch_pipeline
 from sec_sum.fetch.ids import resolve_company_id
 from sec_sum.fetch.net import HttpClient
 from sec_sum.parse_core import parse_filing
+from sec_sum.pipeline import run_pipeline
 from sec_sum.summarizer import summarize_parsed_file
 
 
@@ -99,6 +100,28 @@ def _cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_run(args: argparse.Namespace) -> int:
+    forms = [s.strip().upper() for s in args.forms.split(",") if s.strip()]
+    if not forms:
+        raise SystemExit("At lease one form must be specified (e.g. 10-K, 10-Q)")
+
+    out_paths = run_pipeline(
+        ticker_or_cik=args.ticker,
+        forms=forms,
+        limit=args.limit,
+        data_root=args.data_root,
+        out_dir=args.outdir,
+        model=args.model,
+        user_agent=args.user_agent,
+        include_amendments=args.include_amendments,
+    )
+
+    print(f"Wrote {len(out_paths)} summaries:")
+    for p in out_paths:
+        print(f"- {p}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="sec-sum", description="SEC filing summarizer")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -118,6 +141,17 @@ def main(argv: list[str] | None = None) -> int:
     p_sum.add_argument("--input", type=str, required=True)
     p_sum.add_argument("--outdir", type=str, default="out")
     p_sum.set_defaults(func=_cmd_summarize)
+
+    p_run = sub.add_parser("run", help="Fetch + parse + summarize in one command")
+    p_run.add_argument("--ticker", type=str, required=True)
+    p_run.add_argument("--forms", type=str, default="10-K,10-Q")
+    p_run.add_argument("--limit", type=int, default=4)
+    p_run.add_argument("--data-root", type=str, default="data")
+    p_run.add_argument("--outdir", type=str, default="out")
+    p_run.add_argument("--model", type=str, default="gpt-5-mini")
+    p_run.add_argument("--user-agent", type=str, default="sec-sum/0.1 (carlos8cadu@gmail.com)")
+    p_run.add_argument("--include-amendments", action="store_true")
+    p_run.set_defaults(func=_cmd_run)
 
     args = p.parse_args(argv)
 
